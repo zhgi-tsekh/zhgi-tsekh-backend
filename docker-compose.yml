@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: zhgi_postgres
+    environment:
+      POSTGRES_USER: zhgi_user
+      POSTGRES_PASSWORD: zhgi_password
+      POSTGRES_DB: zhgi_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zhgi_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zhgi_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zhgi_api
+    environment:
+      DATABASE_URL: postgresql://zhgi_user:zhgi_password@postgres:5432/zhgi_db
+      SECRET_KEY: supersecretkey123change_in_production
+      DEBUG: True
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - zhgi_network
+
+volumes:
+  postgres_data:
+
+networks:
+  zhgi_network:
+    driver: bridge
